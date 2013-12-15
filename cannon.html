@@ -41,8 +41,32 @@ var g_game = {
 	curShape: 0,
 	objSize: 36,
 	font: "'Orbitron', sans-serif",
-	objsForDestruction: []
+	objsForDestruction: [],
+	shipDefs: {
+		friend: {
+			isEnemy: false,
+			isBomber: false
+		},
+		enemyFighter: {
+			isEnemy: true,
+			isBomber: false
+		},
+		enemyBomber: {
+			isEnemy: true,
+			isBomber: true
+		}
+	},
+	stages: [
+		{
+			name: 'Stage 1',
+			killsNeeded: 3,
+			ships: [
+				{ type: 'enemyFighter', spawnRate: 3000, maxNum: 1 }
+			]
+		}
+	]
 };
+
 
 $(document).ready(function() {
 	init();
@@ -109,6 +133,31 @@ function init() {
 				Crafty(dataB.craftyId).takeDamage(v);
 			}
 		}
+		else if ((dataA && dataA.type == 'cannonball') || (dataB && dataB.type == 'cannonball')) {
+			g_game.sounds.thump.play();
+		}
+		else if ((dataA && dataA.type == 'bomb') || (dataB && dataB.type == 'bomb')) {
+			var target = undefined;
+			if (dataA && dataA.type == 'bomb') {
+				var bomb = Crafty(dataA.craftyId);
+				g_game.objsForDestruction.push(bomb.physics);
+				g_game.sounds.hitSmall.play();
+				target = dataB && dataB.craftyId ? Crafty(dataB.craftyId) : undefined;
+				bomb.destroy();
+			}
+			else if (dataB && dataB.type == 'bomb') {
+				var bomb = Crafty(dataB.craftyId);
+				g_game.objsForDestruction.push(bomb.physics);
+				g_game.sounds.hitSmall.play();
+				target = dataA && dataA.craftyId ? Crafty(dataA.craftyId) : undefined;
+				bomb.destroy();
+			}
+			if (target) {
+				if (target.takeDamage) {
+					target.takeDamage(10);
+				}
+			}
+		}
 	};
 	world.SetContactListener(listener);
 	
@@ -129,18 +178,17 @@ function init() {
 		return body;
 	}
 
-	function createCannonball(width,height,pX,pY,vX,vY){
+	function createCannonball(radius,pX,pY,vX,vY){
 		var bodyDef = new b2BodyDef;
 		bodyDef.type = b2Body.b2_dynamicBody;
 		bodyDef.userData = { type: 'cannonball' };
 		bodyDef.position.Set(pX/worldScale,pY/worldScale);
-		var polygonShape = new b2PolygonShape;
-		polygonShape.SetAsBox(width/2/worldScale,height/2/worldScale);
+
 		var fixtureDef = new b2FixtureDef;
 		fixtureDef.density = 5.0;
 		fixtureDef.friction = 0.5;
 		fixtureDef.restitution = 0.5;
-		fixtureDef.shape = polygonShape;
+		fixtureDef.shape = new b2CircleShape(radius/worldScale);
 		var body=world.CreateBody(bodyDef);
 		body.CreateFixture(fixtureDef);
 		body.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(vX, vY));	
@@ -200,8 +248,6 @@ function init() {
 		var x = g_game.firing.physics.m_xf.position.x*g_game.worldScale;
 		var y = g_game.firing.physics.m_xf.position.y*g_game.worldScale;
 
-		console.log(g_game.firing);
-		
 		var angle = Math.atan2(y - e.offsetY, e.offsetX - x);
 		var vY = -20 * Math.sin(angle);
 		var vX = 20 * Math.cos(angle);
@@ -212,19 +258,27 @@ function init() {
 
 	Crafty.c('AirShip', {
 		hitPoints: 40,
+		isEnemy: false,
 		
-		AirShip: function(x, y, size, bEnemy) {
+		AirShip: function(x, y, size, bEnemy, bBomber) {
 			this.requires('2D, ' + RENDERING_MODE + ', Color')
 				.attr({ x: x, y: y, w: size, h: size, z: 100 })
 				.color(bEnemy ? '#ffff00' : '#0000ff')
-				.bind('EnterFrame', function() {
+				.bind('EnterFrame', function(frameObj) {
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale, y: this.physics.m_xf.position.y*g_game.worldScale });
 					this.physics.ApplyForce(
 						floatingForce,
 						this.physics.GetWorldCenter()
 					);
+					if (bBomber && frameObj.frame % 150 == rand) {
+						// drop bomb
+						Crafty.e('Bomb').Bomb(this.x + this.w/2 - 10/2, this.y + size*2 + 1, this.physics.m_linearVelocity.x, Math.max(0, this.physics.m_linearVelocity.y));
+					}
 				})
-				
+			
+			var rand = Math.floor(Math.random() * 150);
+			this.isEnemy = bEnemy;
+			
 			this.physics = createCircle(x, y, size, { type: bEnemy ? 'enemyShip' : 'friendlyShip', craftyId: this[0] });
 			var floatingForce = new b2Vec2(0, -10*this.physics.GetMass());
 			
@@ -234,12 +288,39 @@ function init() {
 			this.hitPoints -= amt;
 			if (this.hitPoints <=0) {
 				g_game.objsForDestruction.push(this.physics);
+				var x = this.x;
+				var y = this.y;
 				this.destroy();
-				g_game.enemyCount--;
+				if (this.isEnemy) {
+					g_game.enemyCount--;
+				}
+				else {
+					if (!g_game.fired && g_game.firing == this) {
+						// TODO: crashing why?
+						g_game.cannonBall = Crafty.e('CannonBall').CannonBall(x, y, 0, 0);
+					}
+					g_game.friendlyShip = undefined;
+				}
 			}
 		}
 	});
 
+	Crafty.c('Bomb', {
+		Bomb: function(x, y, vx, vy) {
+			this.requires('2D, ' + RENDERING_MODE + ', Color')
+				.attr({ x: x, y: y, w: 10, h: 10, z: 100 })
+				.color('#ffff00')
+				.bind('EnterFrame', function() {
+					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale, y: this.physics.m_xf.position.y*g_game.worldScale });
+				});
+				
+			this.physics = createCircle(x, y, 10, { type: 'bomb', craftyId: this[0] });
+			this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(vx, vy));
+			
+			return this;
+		}
+	});
+	
 	Crafty.c('CannonBall', {
 		CannonBall: function(x, y, vX, vY) {
 			this.requires('2D, ' + RENDERING_MODE + ', Color')
@@ -249,7 +330,7 @@ function init() {
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale, y: this.physics.m_xf.position.y*g_game.worldScale });
 				});
 				
-			this.physics = createCannonball(10, 10, x, y, vX, vY);
+			this.physics = createCannonball(10, x, y, vX, vY);
 			
 			return this;
 		}
@@ -266,7 +347,9 @@ function init() {
 					g_game.world.Step(1/50,10,10);
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale });
 					for (var i in g_game.objsForDestruction) {
-						world.DestroyBody(g_game.objsForDestruction[i]);
+						if (g_game.objsForDestruction[i]) {
+							world.DestroyBody(g_game.objsForDestruction[i]);
+						}
 					}
 					if (g_game.objsForDestruction.length) {
 						g_game.objsForDestruction = [];
@@ -321,16 +404,17 @@ function init() {
 		
 		g_game.firing = g_game.cannon;
 		
-		//var body = createPolygon(300, 100, { vert: [[[2,0],[4,4],[0,4]]], w: 72, h: 72 }, 40);
-		//g_game.bodies.push(body);
 		// friendly ship
-		g_game.friendlyShip = Crafty.e('AirShip')
-			.AirShip(300, 200, 40, false);
-			
+		setInterval(function() {
+			if (!g_game.friendlyShip) {
+				g_game.friendlyShip = Crafty.e('AirShip')
+					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 200, 40, false);
+			}
+		}, 10000);
 		setInterval(function() {
 			if (g_game.enemyCount <= 3) {
 				Crafty.e('AirShip')
-					.AirShip(100, 100, 40, true);
+					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 40, true, true);
 					
 				g_game.enemyCount++;
 			}
@@ -363,6 +447,9 @@ function init() {
 			g_game.sounds.collect = new buzz.sound( "./audio/sfx/collect", {
 				formats: [ "wav" ]
 			});
+			g_game.sounds.thump = new buzz.sound( "./audio/sfx/thump", {
+				formats: [ "wav" ]
+			});
 
 			Crafty.scene("main");
 			
@@ -373,25 +460,6 @@ function init() {
 	
 }
 	
-// shim layer with setTimeout fallback
-/*window.requestAnimFrame = (function(){
-  return  window.requestAnimationFrame       ||
-          window.webkitRequestAnimationFrame ||
-          window.mozRequestAnimationFrame    ||
-          function( callback ){
-            window.setTimeout(callback, 1000 / 60);
-          };
-})();
-
-function doGameLoop() {
-	
-	g_game.world.Step(1/60,10,10);
-	g_game.world.DrawDebugData();
-	g_game.world.ClearForces();
-
-}*/
-
-
 	</script>
 	
 </head>
