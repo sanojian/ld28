@@ -28,6 +28,7 @@ var RENDERING_MODE = 'DOM';//'Canvas';
 	
 var g_game = {
 	frame: 0,
+	enemyCount: 0,
 	sounds: [],
 	worldScale: 30,
 	rocket_vY: 0,
@@ -78,15 +79,35 @@ function init() {
 		
 		if ((dataA && dataA.type == 'cannonball' && dataB && dataB.type == 'cannon') || (dataB && dataB.type == 'cannonball' && dataA && dataA.type == 'cannon')) {
 			g_game.objsForDestruction.push(g_game.cannonBall.physics);
+			g_game.sounds.collect.play();
 			g_game.cannonBall.destroy();
 			g_game.firing = g_game.cannon;
 			g_game.fired = false;
 		}
 		else if ((dataA && dataA.type == 'cannonball' && dataB && dataB.type == 'friendlyShip') || (dataB && dataB.type == 'cannonball' && dataA && dataA.type == 'friendlyShip')) {
 			g_game.objsForDestruction.push(g_game.cannonBall.physics);
+			g_game.sounds.collect.play();
 			g_game.cannonBall.destroy();
 			g_game.firing = g_game.friendlyShip;
 			g_game.fired = false;
+		}
+		else if ((dataA && dataA.type == 'cannonball' && dataB && dataB.type == 'enemyShip') || (dataB && dataB.type == 'cannonball' && dataA && dataA.type == 'enemyShip')) {
+			var v = Math.sqrt(Math.pow(g_game.cannonBall.physics.m_linearVelocity.x, 2) + Math.pow(g_game.cannonBall.physics.m_linearVelocity.y, 2));
+			if (v < 10) {
+				g_game.sounds.hitSmall.play();
+			}
+			else if (v < 17) {
+				g_game.sounds.hitMedium.play();
+			}
+			else {
+				g_game.sounds.hitBig.play();
+			}
+			if (dataA.type == 'enemyShip') {
+				Crafty(dataA.craftyId).takeDamage(v);
+			}
+			else if (dataB.type == 'enemyShip') {
+				Crafty(dataB.craftyId).takeDamage(v);
+			}
 		}
 	};
 	world.SetContactListener(listener);
@@ -185,10 +206,13 @@ function init() {
 		var vY = -20 * Math.sin(angle);
 		var vX = 20 * Math.cos(angle);
 		
+		g_game.sounds.shoot.play();
 		g_game.cannonBall = Crafty.e('CannonBall').CannonBall(x + g_game.firing.w*2*vX/20, y + g_game.firing.h*2*vY/20, vX, vY);
 	});
 
 	Crafty.c('AirShip', {
+		hitPoints: 40,
+		
 		AirShip: function(x, y, size, bEnemy) {
 			this.requires('2D, ' + RENDERING_MODE + ', Color')
 				.attr({ x: x, y: y, w: size, h: size, z: 100 })
@@ -201,10 +225,18 @@ function init() {
 					);
 				})
 				
-			this.physics = createCircle(x, y, size, { type: bEnemy ? 'enemyShip' : 'friendlyShip' });
+			this.physics = createCircle(x, y, size, { type: bEnemy ? 'enemyShip' : 'friendlyShip', craftyId: this[0] });
 			var floatingForce = new b2Vec2(0, -10*this.physics.GetMass());
 			
 			return this;
+		},
+		takeDamage: function(amt) {
+			this.hitPoints -= amt;
+			if (this.hitPoints <=0) {
+				g_game.objsForDestruction.push(this.physics);
+				this.destroy();
+				g_game.enemyCount--;
+			}
 		}
 	});
 
@@ -242,21 +274,21 @@ function init() {
 					g_game.world.ClearForces();
 				})
 				.bind('KeyDown', function(evt) {
-					if (this.isDown(Crafty.keys.A)) {
+					if (this.isDown(Crafty.keys.A) || this.isDown(Crafty.keys.LEFT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
 					}
-					else if (this.isDown(Crafty.keys.D)) {
+					else if (this.isDown(Crafty.keys.D) || this.isDown(Crafty.keys.RIGHT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
 					}
 				})
 				.bind('KeyUp', function(evt) {
-					if (this.isDown(Crafty.keys.A)) {
+					if (this.isDown(Crafty.keys.A) || this.isDown(Crafty.keys.LEFT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
 					}
-					else if (this.isDown(Crafty.keys.D)) {
+					else if (this.isDown(Crafty.keys.D) || this.isDown(Crafty.keys.RIGHT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
 					}
@@ -291,10 +323,18 @@ function init() {
 		
 		//var body = createPolygon(300, 100, { vert: [[[2,0],[4,4],[0,4]]], w: 72, h: 72 }, 40);
 		//g_game.bodies.push(body);
-		Crafty.e('AirShip')
-			.AirShip(100, 100, 40, true);
+		// friendly ship
 		g_game.friendlyShip = Crafty.e('AirShip')
 			.AirShip(300, 200, 40, false);
+			
+		setInterval(function() {
+			if (g_game.enemyCount <= 3) {
+				Crafty.e('AirShip')
+					.AirShip(100, 100, 40, true);
+					
+				g_game.enemyCount++;
+			}
+		}, 5000);
 		
 	});
 	
@@ -307,6 +347,22 @@ function init() {
 		} catch (ex) {;}
 
 		Crafty.load(['./images/test.png'], function() {
+
+			g_game.sounds.shoot = new buzz.sound( "./audio/sfx/shoot", {
+				formats: [ "wav" ]
+			});
+			g_game.sounds.hitSmall = new buzz.sound( "./audio/sfx/hitSmall", {
+				formats: [ "wav" ]
+			});
+			g_game.sounds.hitMedium = new buzz.sound( "./audio/sfx/hitMedium", {
+				formats: [ "wav" ]
+			});
+			g_game.sounds.hitBig = new buzz.sound( "./audio/sfx/hitBig", {
+				formats: [ "wav" ]
+			});
+			g_game.sounds.collect = new buzz.sound( "./audio/sfx/collect", {
+				formats: [ "wav" ]
+			});
 
 			Crafty.scene("main");
 			
