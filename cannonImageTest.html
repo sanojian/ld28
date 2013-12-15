@@ -154,13 +154,10 @@ function init() {
 				g_game.sounds.hitBig.play();
 			}
 			if (dataA.type == 'enemyShip') {
-				Crafty(dataA.craftyId).takeDamage(v);
-				g_game.explosionEffects.getNextEffect().showExplosion(Crafty(dataA.craftyId).x, Crafty(dataA.craftyId).y);
+				Crafty(dataA.craftyId).takeDamage(v, Crafty(dataB.craftyId));
 			}
 			else if (dataB.type == 'enemyShip') {
-				Crafty(dataB.craftyId).takeDamage(v);
-				console.log(contact);
-				g_game.explosionEffects.getNextEffect().showExplosion(Crafty(dataB.craftyId).x, Crafty(dataB.craftyId).y);
+				Crafty(dataB.craftyId).takeDamage(v, Crafty(dataA.craftyId));
 			}
 		}
 		else if ((dataA && dataA.type == 'cannonball') || (dataB && dataB.type == 'cannonball')) {
@@ -184,7 +181,7 @@ function init() {
 			}
 			if (target) {
 				if (target.takeDamage) {
-					target.takeDamage(10);
+					target.takeDamage(10, bomb);
 				}
 			}
 		}
@@ -208,10 +205,10 @@ function init() {
 		return body;
 	}
 
-	function createCannonball(radius,pX,pY,vX,vY){
+	function createCannonball(radius,pX,pY,vX,vY, craftyId){
 		var bodyDef = new b2BodyDef;
 		bodyDef.type = b2Body.b2_dynamicBody;
-		bodyDef.userData = { type: 'cannonball' };
+		bodyDef.userData = { type: 'cannonball', craftyId: craftyId };
 		bodyDef.position.Set(pX/worldScale,pY/worldScale);
 
 		var fixtureDef = new b2FixtureDef;
@@ -315,8 +312,11 @@ function init() {
 			
 			return this;
 		},
-		takeDamage: function(amt) {
+		takeDamage: function(amt, from) {
 			this.hitPoints -= amt;
+			if (from) {
+				g_game.explosionEffects.getNextEffect().showExplosion(from.x, from.y);
+			}
 			if (this.hitPoints <=0) {
 				g_game.objsForDestruction.push(this.physics);
 				var x = this.x;
@@ -362,7 +362,7 @@ function init() {
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale, y: this.physics.m_xf.position.y*g_game.worldScale });
 				});
 				
-			this.physics = createCannonball(6, x, y, vX, vY);
+			this.physics = createCannonball(6, x, y, vX, vY, this[0]);
 			
 			return this;
 		}
@@ -373,7 +373,7 @@ function init() {
 		Explosion: function() {
 			this.requires('2D, ' + RENDERING_MODE + ', explosion, SpriteAnimation')
 				.animate('explode', 1, 0, 5)
-				.attr({ z: 200 })
+				.attr({ z: 1000 })
 				
 			this.visible = false;
 			
