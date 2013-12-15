@@ -8,11 +8,12 @@
 <title>Le Artilleur</title>
 <head>
 
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-	<script type="text/javascript" src="./includes/box2dweb/Box2dWeb-2.1.a.3.js"></script>
+	<!--script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script-->
 	<script type="text/javascript" src="./includes/crafty.js"></script>
+	<script type="text/javascript" src="./includes/box2dweb/Box2dWeb-2.1.a.3.js"></script>
+	<script type="text/javascript" src="./includes/jQuery.js"></script>
 	<script type="text/javascript" src="./includes/buzz.min.js"></script>
-	<link href='//fonts.googleapis.com/css?family=Orbitron' rel='stylesheet' type='text/css'>
+	<!--link href='//fonts.googleapis.com/css?family=Orbitron' rel='stylesheet' type='text/css'-->
 
 	<style>
 		body, html { margin:0; padding: 0; overflow:hidden; font-family:Arial; font-size:20px }
@@ -36,14 +37,16 @@ var g_game = {
 	overlays: [],
 	score: 0,
 	points: [],
+	spawnIntervals: [],
 	origAcc: 0.008,
 	curLevel: 0,
 	curShape: 0,
 	objSize: 36,
 	font: "'Orbitron', sans-serif",
 	objsForDestruction: [],
+	currentStage: 0,
 	shipDefs: {
-		friend: {
+		friendlyFighter: {
 			isEnemy: false,
 			isBomber: false
 		},
@@ -60,10 +63,20 @@ var g_game = {
 		{
 			name: 'Stage 1',
 			killsNeeded: 3,
-			ships: [
-				{ type: 'enemyFighter', spawnRate: 3000, maxNum: 1 }
-			]
+			ships: {
+				types: ['enemyFighter'], spawnRate: 3000, maxNum: 1 
+			},
+			friend: false
+		},
+		{
+			name: 'Stage 2',
+			killsNeeded: 3,
+			ships: {
+				types: ['enemyFighter'], spawnRate: 3000, maxNum: 2
+			},
+			friend: true
 		}
+		
 	]
 };
 
@@ -95,6 +108,7 @@ function init() {
 
 	var pos = $('#cr-stage').offset();
 	$('#divOverlay').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
+	$('#divSplash').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
 
 	var listener = new b2Listener;
 	listener.BeginContact = function(contact) {
@@ -404,22 +418,7 @@ function init() {
 		
 		g_game.firing = g_game.cannon;
 		
-		// friendly ship
-		setInterval(function() {
-			if (!g_game.friendlyShip) {
-				g_game.friendlyShip = Crafty.e('AirShip')
-					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 200, 40, false);
-			}
-		}, 10000);
-		setInterval(function() {
-			if (g_game.enemyCount <= 3) {
-				Crafty.e('AirShip')
-					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 40, true, true);
-					
-				g_game.enemyCount++;
-			}
-		}, 5000);
-		
+		startStage();
 	});
 	
 	Crafty.scene("loading", function () {
@@ -459,12 +458,52 @@ function init() {
 	Crafty.scene("loading");
 	
 }
+
+function startStage() {
+	$('#divSplash').css({ 'font-family': g_game.GAME_FONT });
+	$('#spanStageName').text(g_game.stages[g_game.currentStage].name);
+	$('#divSplash').show();
+	setTimeout(function() {
+		$('#divSplash').hide();
+	}, 3000);
+	
+	/*g_game.spawnIntervals.push(
+		setInterval(function() {
+			if (g_game.enemyCount <= 3) {
+				Crafty.e('AirShip')
+					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 40, true, true);
+					
+				g_game.enemyCount++;
+			}
+		}, 5000);
+	);
+	
+	// friendly ship
+	setInterval(function() {
+		if (!g_game.friendlyShip) {
+			g_game.friendlyShip = Crafty.e('AirShip')
+				.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 200, 40, false);
+		}
+	}, 10000);
+	setInterval(function() {
+		if (g_game.enemyCount <= 3) {
+			Crafty.e('AirShip')
+				.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 40, true, true);
+				
+			g_game.enemyCount++;
+		}
+	}, 5000);*/
+	
+}
 	
 	</script>
 	
 </head>
 <body>
 	<!--canvas id="gameCanvas" width="640" height="480" style="position: absolute; background-color:#333333;" ></canvas-->
-	<div id="divOverlay" style="position: absolute;z-index: 8000"></div> 
+	<div id="divOverlay" style="position: absolute;z-index: 8000;"></div> 
+	<div id="divSplash" style="position: absolute;text-align: center;color: #ffffff; display: none;z-index: 9000;">
+		<br><br><br><span id="spanStageName">test</span>
+	</div> 
 
 </body>
