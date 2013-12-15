@@ -39,7 +39,8 @@ var g_game = {
 	curLevel: 0,
 	curShape: 0,
 	objSize: 36,
-	font: "'Orbitron', sans-serif"
+	font: "'Orbitron', sans-serif",
+	objsForDestruction: []
 };
 
 $(document).ready(function() {
@@ -74,6 +75,19 @@ function init() {
 	listener.BeginContact = function(contact) {
 		var dataA = contact.GetFixtureA().GetBody().GetUserData();
 		var dataB = contact.GetFixtureB().GetBody().GetUserData();
+		
+		if ((dataA && dataA.type == 'cannonball' && dataB && dataB.type == 'cannon') || (dataB && dataB.type == 'cannonball' && dataA && dataA.type == 'cannon')) {
+			g_game.objsForDestruction.push(g_game.cannonBall.physics);
+			g_game.cannonBall.destroy();
+			g_game.firing = g_game.cannon;
+			g_game.fired = false;
+		}
+		else if ((dataA && dataA.type == 'cannonball' && dataB && dataB.type == 'friendlyShip') || (dataB && dataB.type == 'cannonball' && dataA && dataA.type == 'friendlyShip')) {
+			g_game.objsForDestruction.push(g_game.cannonBall.physics);
+			g_game.cannonBall.destroy();
+			g_game.firing = g_game.friendlyShip;
+			g_game.fired = false;
+		}
 	};
 	world.SetContactListener(listener);
 	
@@ -162,14 +176,16 @@ function init() {
 		}
 		g_game.fired = true;
 
-		var x = g_game.cannon.m_xf.position.x*g_game.worldScale;
-		var y = g_game.cannon.m_xf.position.y*g_game.worldScale;
+		var x = g_game.firing.physics.m_xf.position.x*g_game.worldScale;
+		var y = g_game.firing.physics.m_xf.position.y*g_game.worldScale;
 
+		console.log(g_game.firing);
+		
 		var angle = Math.atan2(y - e.offsetY, e.offsetX - x);
 		var vY = -20 * Math.sin(angle);
 		var vX = 20 * Math.cos(angle);
 		
-		g_game.cannonBall = Crafty.e('CannonBall').CannonBall(x, y, vX, vY);
+		g_game.cannonBall = Crafty.e('CannonBall').CannonBall(x + g_game.firing.w*2*vX/20, y + g_game.firing.h*2*vY/20, vX, vY);
 	});
 
 	Crafty.c('AirShip', {
@@ -209,27 +225,48 @@ function init() {
 	
 	Crafty.c('Cannon', {
 	
-		Cannon: function() {
-			this.requires('Keyboard')
+		Cannon: function(x, y) {
+			this.requires('Keyboard, Color')
+				.color('#0000ff')
+				.attr({ x: x, y: y, w: 20, h: 20, z: 100 })
+				.bind('EnterFrame', function() {
+					// main loop
+					g_game.world.Step(1/50,10,10);
+					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale });
+					for (var i in g_game.objsForDestruction) {
+						world.DestroyBody(g_game.objsForDestruction[i]);
+					}
+					if (g_game.objsForDestruction.length) {
+						g_game.objsForDestruction = [];
+					}
+					g_game.world.ClearForces();
+				})
 				.bind('KeyDown', function(evt) {
 					if (this.isDown(Crafty.keys.A)) {
-						g_game.cannon.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
+						this.physics.SetAwake(true);
+						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
 					}
 					else if (this.isDown(Crafty.keys.D)) {
-						g_game.cannon.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
+						this.physics.SetAwake(true);
+						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
 					}
 				})
 				.bind('KeyUp', function(evt) {
 					if (this.isDown(Crafty.keys.A)) {
-						g_game.cannon.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
+						this.physics.SetAwake(true);
+						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
 					}
 					else if (this.isDown(Crafty.keys.D)) {
-						g_game.cannon.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
+						this.physics.SetAwake(true);
+						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
 					}
 					else {
-						g_game.cannon.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(0, 0));	
+						this.physics.SetAwake(true);
+						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2());	
 					}
 				})
+					
+			this.physics = createBox(20, 20, x, y, b2Body.b2_kinematicBody, { type: 'cannon' });
 					
 			return this;
 		}
@@ -247,21 +284,16 @@ function init() {
 		createBox(20, VIEW_HEIGHT*2, VIEW_WIDTH, 0, b2Body.b2_staticBody);			
 		
 		// cannon
-		g_game.cannon = createBox(20, 20, VIEW_WIDTH/2-10, VIEW_HEIGHT - 50, b2Body.b2_kinematicBody, { type: 'cannon' });
-		Crafty.e('2D, ' + RENDERING_MODE + ', Color, Cannon')
-			.attr({ x: g_game.cannon.m_xf.position.x*g_game.worldScale, y: g_game.cannon.m_xf.position.y*g_game.worldScale, w: 20, h: 20, z: 100 })
-			.color('#0000ff')
-			.bind('EnterFrame', function() {
-				g_game.world.Step(1/50,10,10);
-				g_game.world.ClearForces();
-				this.attr({ x: g_game.cannon.m_xf.position.x*g_game.worldScale });
-			}).Cannon();
+		g_game.cannon = Crafty.e('2D, ' + RENDERING_MODE + ', Color, Cannon')
+						.Cannon(VIEW_WIDTH/2-10, VIEW_HEIGHT - 50);
+		
+		g_game.firing = g_game.cannon;
 		
 		//var body = createPolygon(300, 100, { vert: [[[2,0],[4,4],[0,4]]], w: 72, h: 72 }, 40);
 		//g_game.bodies.push(body);
 		Crafty.e('AirShip')
 			.AirShip(100, 100, 40, true);
-		Crafty.e('AirShip')
+		g_game.friendlyShip = Crafty.e('AirShip')
 			.AirShip(300, 200, 40, false);
 		
 	});
