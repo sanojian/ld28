@@ -404,7 +404,7 @@ function init() {
 	Crafty.scene("main", function () {
 		Crafty.background("#000");
 	
-		var box = createBox(VIEW_WIDTH*2, 20, 0, VIEW_HEIGHT-20, b2Body.b2_staticBody);
+		var box = createBox(VIEW_WIDTH*2, 20, 0, VIEW_HEIGHT-120, b2Body.b2_staticBody);
 		Crafty.e('2D, ' + RENDERING_MODE + ', Color')
 			.attr({ x: box.m_xf.position.x*g_game.worldScale, y: box.m_xf.position.y*g_game.worldScale, w: VIEW_WIDTH, h: 20, z: 100 })
 			.color('#00ff00');
@@ -414,7 +414,7 @@ function init() {
 		
 		// cannon
 		g_game.cannon = Crafty.e('2D, ' + RENDERING_MODE + ', Color, Cannon')
-						.Cannon(VIEW_WIDTH/2-10, VIEW_HEIGHT - 50);
+						.Cannon(VIEW_WIDTH/2-10, VIEW_HEIGHT - 150);
 		
 		g_game.firing = g_game.cannon;
 		

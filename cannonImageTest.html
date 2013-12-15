@@ -25,7 +25,7 @@
 	
 var VIEW_WIDTH = 480;
 var VIEW_HEIGHT = 640;
-var RENDERING_MODE = 'DOM';//'Canvas';
+var RENDERING_MODE = 'Canvas';
 	
 var g_game = {
 	frame: 0,
@@ -45,6 +45,14 @@ var g_game = {
 	font: "'Orbitron', sans-serif",
 	objsForDestruction: [],
 	currentStage: 0,
+	explosionEffects: {
+		objArray: [],
+		cursor: 0,
+		getNextEffect: function() {
+			g_game.explosionEffects.cursor = (g_game.explosionEffects.cursor + 1) % g_game.explosionEffects.objArray.length;
+			return g_game.explosionEffects.objArray[g_game.explosionEffects.cursor];
+		}
+	},
 	shipDefs: {
 		friendlyFighter: {
 			isEnemy: false,
@@ -147,9 +155,12 @@ function init() {
 			}
 			if (dataA.type == 'enemyShip') {
 				Crafty(dataA.craftyId).takeDamage(v);
+				g_game.explosionEffects.getNextEffect().showExplosion(Crafty(dataA.craftyId).x, Crafty(dataA.craftyId).y);
 			}
 			else if (dataB.type == 'enemyShip') {
 				Crafty(dataB.craftyId).takeDamage(v);
+				console.log(contact);
+				g_game.explosionEffects.getNextEffect().showExplosion(Crafty(dataB.craftyId).x, Crafty(dataB.craftyId).y);
 			}
 		}
 		else if ((dataA && dataA.type == 'cannonball') || (dataB && dataB.type == 'cannonball')) {
@@ -344,16 +355,38 @@ function init() {
 	Crafty.c('CannonBall', {
 		CannonBall: function(x, y, vX, vY) {
 			this.requires('2D, Canvas, Image, Color')
-				.attr({ x: x, y: y, w: 10, h: 10, z: 10 })
+				.attr({ x: x, y: y, w: 12, h: 12, z: 10 })
 				//.color('#ff0000')
 				.image(imgCannonBall, 'no-repeat')
 				.bind('EnterFrame', function() {
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale, y: this.physics.m_xf.position.y*g_game.worldScale });
 				});
 				
-			this.physics = createCannonball(10, x, y, vX, vY);
+			this.physics = createCannonball(6, x, y, vX, vY);
 			
 			return this;
+		}
+	});
+
+	Crafty.c('Explosion', {
+	
+		Explosion: function() {
+			this.requires('2D, ' + RENDERING_MODE + ', explosion, SpriteAnimation')
+				.animate('explode', 1, 0, 5)
+				.attr({ z: 200 })
+				
+			this.visible = false;
+			
+			return this;
+		},
+		showExplosion: function(x, y) {
+			this.attr({ x: x, y: y }).stop().bind('AnimationEnd', function() {
+					this.visible = false;
+			});
+;
+			
+			this.visible = true;
+			this.animate('explode', 10, 0);
 		}
 	});
 	
@@ -416,18 +449,21 @@ function init() {
              .attr({w: VIEW_WIDTH, h: VIEW_HEIGHT, z: -100})
              .image(imgBackgroundA, "repeat");
 			 
-		var box = createBox(VIEW_WIDTH*2, 20, 0, VIEW_HEIGHT-20, b2Body.b2_staticBody);
-		Crafty.e('2D, ' + RENDERING_MODE + ', Color')
-			.attr({ x: box.m_xf.position.x*g_game.worldScale, y: box.m_xf.position.y*g_game.worldScale, w: VIEW_WIDTH, h: 20, z: 100 })
-			.color('#00ff00');
+		var box = createBox(VIEW_WIDTH*2, 20, 0, VIEW_HEIGHT-60, b2Body.b2_staticBody);
+		//Crafty.e('2D, ' + RENDERING_MODE + ', Color')
+		//	.attr({ x: box.m_xf.position.x*g_game.worldScale, y: box.m_xf.position.y*g_game.worldScale, w: VIEW_WIDTH, h: 20, z: 100 })
+		//	.color('#00ff00');
 		createBox(VIEW_WIDTH*2, 20, 0, -20, b2Body.b2_staticBody);			
 		createBox(20, VIEW_HEIGHT*2, -20, 0, b2Body.b2_staticBody);			
 		createBox(20, VIEW_HEIGHT*2, VIEW_WIDTH, 0, b2Body.b2_staticBody);
 
+		for (var i=0;i<10;i++) {
+			g_game.explosionEffects.objArray.push(Crafty.e('Explosion').Explosion());
+		}
 
 		// cannon
 		g_game.cannon = Crafty.e('2D, ' + RENDERING_MODE + ', Color, Cannon')
-						.Cannon(VIEW_WIDTH/2-10, VIEW_HEIGHT - 50);
+						.Cannon(VIEW_WIDTH/2-10, VIEW_HEIGHT - 90);
 		
 		g_game.firing = g_game.cannon;
 		
@@ -442,7 +478,11 @@ function init() {
 			//.css({ "text-align": "center", "font-family": GAME_FONT, "font-size": "44px" });
 		} catch (ex) {;}
 
-		Crafty.load(['./images/test.png'], function() {
+		Crafty.load(['./images/explosions.png'], function() {
+
+			Crafty.sprite(24, './images/explosions.png', {
+				explosion: [1, 0]
+			});
 
 			g_game.sounds.shoot = new buzz.sound( "./audio/sfx/shoot", {
 				formats: [ "wav" ]
