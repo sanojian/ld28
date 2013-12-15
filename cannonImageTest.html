@@ -91,9 +91,18 @@ var g_game = {
 			description: 'The Swarm',
 			killsNeeded: 7,
 			ships: {
-				includeBomber: true, spawnRate: 3000, maxNum: 2
+				includeBomber: true, spawnRate: 3000, maxNum: 5
 			},
 			friend: true
+		},
+		{
+			name: 'Stage 4',
+			description: 'Protect your Friends',
+			killsNeeded: 7,
+			ships: {
+				includeBomber: true, spawnRate: 3000, maxNum: 3
+			},
+			friend: false
 		}
 		
 	]
@@ -103,7 +112,15 @@ var g_game = {
 $(document).ready(function() {
 	init();
 });		
-		
+	
+function joltScreen(amt) {
+	Crafty.viewport.y = Math.floor(amt);
+	
+	setTimeout(function() {
+		Crafty.viewport.y = 0;
+	}, 100);
+}
+	
 function init() {
 	var b2Vec2 = Box2D.Common.Math.b2Vec2;
 	var b2AABB = Box2D.Collision.b2AABB;
@@ -164,13 +181,17 @@ function init() {
 			}
 			if (dataA.type == 'enemyShip') {
 				Crafty(dataA.craftyId).takeDamage(v, Crafty(dataB.craftyId));
+				joltScreen(v/8);
 			}
 			else if (dataB.type == 'enemyShip') {
 				Crafty(dataB.craftyId).takeDamage(v, Crafty(dataA.craftyId));
+				joltScreen(v/8);
 			}
 		}
 		else if ((dataA && dataA.type == 'cannonball') || (dataB && dataB.type == 'cannonball')) {
 			g_game.sounds.thump.play();
+			var v = Math.sqrt(Math.pow(g_game.cannonBall.physics.m_linearVelocity.x, 2) + Math.pow(g_game.cannonBall.physics.m_linearVelocity.y, 2));
+			joltScreen(v/4);
 		}
 		else if ((dataA && dataA.type == 'bomb') || (dataB && dataB.type == 'bomb')) {
 			var target = undefined;
@@ -178,6 +199,7 @@ function init() {
 				var bomb = Crafty(dataA.craftyId);
 				g_game.objsForDestruction.push(bomb.physics);
 				g_game.sounds.hitSmall.play();
+				g_game.explosionEffects.getNextEffect().showExplosion(bomb.x, bomb.y);
 				target = dataB && dataB.craftyId ? Crafty(dataB.craftyId) : undefined;
 				bomb.destroy();
 			}
@@ -185,6 +207,7 @@ function init() {
 				var bomb = Crafty(dataB.craftyId);
 				g_game.objsForDestruction.push(bomb.physics);
 				g_game.sounds.hitSmall.play();
+				g_game.explosionEffects.getNextEffect().showExplosion(bomb.x - 6, bomb.y - 6);
 				target = dataA && dataA.craftyId ? Crafty(dataA.craftyId) : undefined;
 				bomb.destroy();
 			}
@@ -472,9 +495,9 @@ function init() {
 	Crafty.scene("main", function () {
 		Crafty.background("url('images/BackgroundA.png')");
 		//Background
-		//var bg = Crafty.e("2D, Canvas, Image")
-        //     .attr({w: VIEW_WIDTH, h: VIEW_HEIGHT, z: -100})
-        //     .image(imgBackgroundA, "repeat");
+		var bg = Crafty.e('2D, ' + RENDERING_MODE + ', backgroundImage')
+             .attr({w: VIEW_WIDTH, h: VIEW_HEIGHT, z: -100})
+             //.image('images/BackgroundA.png', "repeat");
 			 
 		var box = createBox(VIEW_WIDTH*2, 20, 0, VIEW_HEIGHT-60, b2Body.b2_staticBody);
 		//Crafty.e('2D, ' + RENDERING_MODE + ', Color')
@@ -522,6 +545,9 @@ function init() {
 			});
 			Crafty.sprite(12, './images/Bomb.png', {
 				bomb: [0, 0]
+			});
+			Crafty.sprite(1, './images/BackgroundA.png', {
+				backgroundImage: [0, 0, 480, 640]
 			});
 
 			g_game.sounds.shoot = new buzz.sound( "./audio/sfx/shoot", {
@@ -585,15 +611,7 @@ function startStage() {
 			}
 		}, 10000);
 	}
-	/*setInterval(function() {
-		if (g_game.enemyCount <= 3) {
-			Crafty.e('AirShip')
-				.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, true);
-				
-			g_game.enemyCount++;
-		}
-	}, 5000);*/
-	
+
 }
 	
 	</script>
@@ -603,6 +621,7 @@ function startStage() {
 	<!--canvas id="gameCanvas" width="640" height="480" style="position: absolute; background-color:#333333;" ></canvas-->
 	<div id="divOverlay" style="position: absolute;z-index: 8000;"></div> 
 	<div id="divSplash" style="position: absolute;text-align: center;color: #ffffff; display: none;z-index: 9000;">
+		<br><br><br><span style="font-size: 32pt;">Le Artilleur</span>
 		<br><br><br><span id="spanStageName">test</span>
 		<br><br><br><span id="spanStageDesc">test</span>
 	</div> 
