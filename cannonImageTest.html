@@ -70,17 +70,28 @@ var g_game = {
 	stages: [
 		{
 			name: 'Stage 1',
-			killsNeeded: 3,
+			description: 'Death from Above',
+			killsNeeded: 1,
 			ships: {
-				types: ['enemyFighter'], spawnRate: 3000, maxNum: 1 
+				includeBomber: true, spawnRate: 3000, maxNum: 1 
 			},
 			friend: false
 		},
 		{
 			name: 'Stage 2',
+			description: 'Pass the Ammo',
 			killsNeeded: 3,
 			ships: {
-				types: ['enemyFighter'], spawnRate: 3000, maxNum: 2
+				includeBomber: true, spawnRate: 3000, maxNum: 2
+			},
+			friend: true
+		},
+		{
+			name: 'Stage 3',
+			description: 'The Swarm',
+			killsNeeded: 7,
+			ships: {
+				includeBomber: true, spawnRate: 3000, maxNum: 2
 			},
 			friend: true
 		}
@@ -107,8 +118,9 @@ function init() {
 	var b2Listener = Box2D.Dynamics.b2ContactListener;
 	
 	var imgCannonBall = 'images/Cannonball.png';
-    var imgCannon = 'images/Cannon.png';
+    var imgCannon = 'images/CannonBase_48.png';
 	var imgShipA = 'images/ShipA.png';
+	var imgShipB = 'images/ShipB.png';
 	var imgBackgroundA = 'images/BackgroundA.png';
 	
 	var worldScale = g_game.worldScale;
@@ -266,6 +278,14 @@ function init() {
 		return body;
 	}
 
+	$('#divOverlay').bind('mousemove', function(e) {
+		var x = g_game.cannon.physics.m_xf.position.x*g_game.worldScale;
+		var y = g_game.cannon.physics.m_xf.position.y*g_game.worldScale;
+
+		var angle = Math.atan2(y - e.offsetY, e.offsetX - x);
+		g_game.cannon.rotateBarrel(angle);		
+	});
+	
 	$('#divOverlay').bind('click', function(e) {
 		if (g_game.fired) {
 			return;
@@ -280,7 +300,8 @@ function init() {
 		var vX = 20 * Math.cos(angle);
 		
 		g_game.sounds.shoot.play();
-		g_game.cannonBall = Crafty.e('CannonBall').CannonBall(x + g_game.firing.w*2*vX/20, y + g_game.firing.h*2*vY/20, vX, vY);
+		g_game.explosionEffects.getNextEffect().showExplosion(x + g_game.firing.w*vX/20, y + g_game.firing.h*vY/20);
+		g_game.cannonBall = Crafty.e('CannonBall').CannonBall(x + g_game.firing.w*vX/20, y + g_game.firing.h*vY/20, vX, vY);
 	});
 
 	Crafty.c('AirShip', {
@@ -288,12 +309,11 @@ function init() {
 		isEnemy: false,
 			
 		AirShip: function(x, y, size, bEnemy, bBomber) {
-			this.requires('2D, Canvas, Image, Color')
+			this.requires('2D, Canvas, Image')
 				.attr({ x: x, y: y, w: size, h: size, z: 100 })
-				//.color(bEnemy ? '#ffff00' : '#0000ff')
-				.image(imgShipA, 'no-repeat')
+				.image(bEnemy ? imgShipA : imgShipB, 'no-repeat')
 				.bind('EnterFrame', function(frameObj) {
-					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale, y: this.physics.m_xf.position.y*g_game.worldScale });
+					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale -size/2, y: this.physics.m_xf.position.y*g_game.worldScale - size/2 });
 					this.physics.ApplyForce(
 						floatingForce,
 						this.physics.GetWorldCenter()
@@ -307,7 +327,7 @@ function init() {
 			var rand = Math.floor(Math.random() * 150);
 			this.isEnemy = bEnemy;
 			
-			this.physics = createCircle(x, y, size, { type: bEnemy ? 'enemyShip' : 'friendlyShip', craftyId: this[0] });
+			this.physics = createCircle(x, y, size/2, { type: bEnemy ? 'enemyShip' : 'friendlyShip', craftyId: this[0] });
 			var floatingForce = new b2Vec2(0, -10*this.physics.GetMass());
 			
 			return this;
@@ -324,6 +344,12 @@ function init() {
 				this.destroy();
 				if (this.isEnemy) {
 					g_game.enemyCount--;
+					g_game.kills++;
+					// did we win stage?
+					if (g_game.kills >= g_game.stages[g_game.currentStage].killsNeeded) {
+						g_game.currentStage = Math.min(g_game.stages.length-1, g_game.currentStage + 1);
+						startStage();
+					}
 				}
 				else {
 					if (!g_game.fired && g_game.firing == this) {
@@ -393,10 +419,9 @@ function init() {
 	Crafty.c('Cannon', {
 	
 		Cannon: function(x, y) {
-			this.requires('Keyboard, 2D, Canvas, Image, Color')
-				//.color('#0000ff')
-				.attr({ x: x, y: y, w: 30, h: 30, z: 100 })
-				.image(imgCannon, 'no-repeat')
+			this.requires('2D, ' + RENDERING_MODE + ', Keyboard, cannon_base')
+				.attr({ x: x, y: y, w: 48, h: 48, z: 110 })
+				//.image(imgCannon, 'no-repeat')
 				.bind('EnterFrame', function() {
 					// main loop
 					g_game.world.Step(1/50,10,10);
@@ -435,10 +460,18 @@ function init() {
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2());	
 					}
 				})
-					
-			this.physics = createBox(30, 30, x, y, b2Body.b2_kinematicBody, { type: 'cannon' });
+			
+			this.barrel = Crafty.e('2D, ' + RENDERING_MODE + ', cannon_barrel')
+							.attr({ x: this.x, y: this.y, z: this.z+1 });
+			this.barrel.origin('center');
+			this.attach(this.barrel);
+			
+			this.physics = createBox(48, 48, x, y, b2Body.b2_kinematicBody, { type: 'cannon' });
 					
 			return this;
+		},
+		rotateBarrel: function(angle) {
+			this.barrel.rotation =  90 - angle * 180 / Math.PI;
 		}
 	});
 
@@ -463,7 +496,7 @@ function init() {
 
 		// cannon
 		g_game.cannon = Crafty.e('2D, ' + RENDERING_MODE + ', Color, Cannon')
-						.Cannon(VIEW_WIDTH/2-10, VIEW_HEIGHT - 90);
+						.Cannon(VIEW_WIDTH/2-10, VIEW_HEIGHT - 94);
 		
 		g_game.firing = g_game.cannon;
 		
@@ -478,10 +511,16 @@ function init() {
 			//.css({ "text-align": "center", "font-family": GAME_FONT, "font-size": "44px" });
 		} catch (ex) {;}
 
-		Crafty.load(['./images/explosions.png'], function() {
+		Crafty.load(['./images/explosions.png', './images/CannonBase_48.png', './images/CannonBarrel_48.png'], function() {
 
 			Crafty.sprite(24, './images/explosions.png', {
 				explosion: [1, 0]
+			});
+			Crafty.sprite(48, './images/CannonBase_48.png', {
+				cannon_base: [0, 0]
+			});
+			Crafty.sprite(48, './images/CannonBarrel_48.png', {
+				cannon_barrel: [0, 0]
 			});
 
 			g_game.sounds.shoot = new buzz.sound( "./audio/sfx/shoot", {
@@ -513,40 +552,46 @@ function init() {
 }
 
 function startStage() {
+	clearTimeout(g_game.enemySpawn);
+	clearTimeout(g_game.friendlySpawn);
+	var stageDef = g_game.stages[g_game.currentStage];
+
 	$('#divSplash').css({ 'font-family': g_game.GAME_FONT });
-	$('#spanStageName').text(g_game.stages[g_game.currentStage].name);
+	$('#spanStageName').text(stageDef.name);
+	$('#spanStageDesc').text(stageDef.description);
 	$('#divSplash').show();
 	setTimeout(function() {
 		$('#divSplash').hide();
 	}, 3000);
 	
-	/*g_game.spawnIntervals.push(
-		setInterval(function() {
-			if (g_game.enemyCount <= 3) {
+	
+	g_game.kills = 0;
+	g_game.enemySpawn = setInterval(function() {
+			if (g_game.enemyCount < stageDef.ships.maxNum && g_game.kills + g_game.enemyCount < stageDef.killsNeeded) {
 				Crafty.e('AirShip')
 					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 40, true, true);
 					
 				g_game.enemyCount++;
 			}
-		}, 5000);
-	);*/
+		}, stageDef.ships.spawnRate);
 	
-	 
-	// friendly ship
-	setInterval(function() {
-		if (!g_game.friendlyShip) {
-			g_game.friendlyShip = Crafty.e('AirShip')
-				.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 200, 65, false);
-		}
-	}, 10000);
-	setInterval(function() {
+	if (stageDef.friend) {
+		// friendly ship
+		g_game.friendlySpawn = setInterval(function() {
+			if (!g_game.friendlyShip) {
+				g_game.friendlyShip = Crafty.e('AirShip')
+					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 200, 65, false);
+			}
+		}, 10000);
+	}
+	/*setInterval(function() {
 		if (g_game.enemyCount <= 3) {
 			Crafty.e('AirShip')
 				.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, true);
 				
 			g_game.enemyCount++;
 		}
-	}, 5000);
+	}, 5000);*/
 	
 }
 	
@@ -558,6 +603,7 @@ function startStage() {
 	<div id="divOverlay" style="position: absolute;z-index: 8000;"></div> 
 	<div id="divSplash" style="position: absolute;text-align: center;color: #ffffff; display: none;z-index: 9000;">
 		<br><br><br><span id="spanStageName">test</span>
+		<br><br><br><span id="spanStageDesc">test</span>
 	</div> 
 
 </body>
