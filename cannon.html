@@ -53,36 +53,22 @@ var g_game = {
 			return g_game.explosionEffects.objArray[g_game.explosionEffects.cursor];
 		}
 	},
-	shipDefs: {
-		friendlyFighter: {
-			isEnemy: false,
-			isBomber: false
-		},
-		enemyFighter: {
-			isEnemy: true,
-			isBomber: false
-		},
-		enemyBomber: {
-			isEnemy: true,
-			isBomber: true
-		}
-	},
 	stages: [
 		{
 			name: 'Stage 1',
 			description: 'Death from Above',
 			killsNeeded: 1,
 			ships: {
-				includeBomber: true, spawnRate: 3000, maxNum: 1 
+				includeFighter: true, spawnRate: 3000, maxNum: 1 
 			},
-			friend: false
+			friend: true
 		},
 		{
 			name: 'Stage 2',
 			description: 'Pass the Ammo',
 			killsNeeded: 3,
 			ships: {
-				includeBomber: true, spawnRate: 3000, maxNum: 2
+				includeFighter: true, spawnRate: 3000, maxNum: 2
 			},
 			friend: true
 		},
@@ -91,7 +77,7 @@ var g_game = {
 			description: 'The Swarm',
 			killsNeeded: 7,
 			ships: {
-				includeBomber: true, spawnRate: 3000, maxNum: 5
+				includeFighter: true, spawnRate: 3000, maxNum: 5
 			},
 			friend: true
 		},
@@ -100,7 +86,7 @@ var g_game = {
 			description: 'Help is Not on the Way',
 			killsNeeded: 7,
 			ships: {
-				includeBomber: true, spawnRate: 3000, maxNum: 3
+				includeFighter: true, spawnRate: 3000, maxNum: 3
 			},
 			friend: false
 		}
@@ -343,9 +329,25 @@ function init() {
 						floatingForce,
 						this.physics.GetWorldCenter()
 					);
-					if (bBomber && frameObj.frame % 150 == rand) {
-						// drop bomb
-						Crafty.e('Bomb').Bomb(this.x + this.w/2 - 12/2, this.y + size*2 + 1, this.physics.m_linearVelocity.x, Math.max(0, this.physics.m_linearVelocity.y));
+					if (this.isEnemy && frameObj.frame % 150 == rand) {
+						if (bBomber) {
+							// drop bomb
+							Crafty.e('Bomb').Bomb(this.x + this.w/2 - 12/2, this.y + size*2 + 1, this.physics.m_linearVelocity.x, Math.max(0, this.physics.m_linearVelocity.y));
+						}
+						else {
+							// shoot at friendly
+							if (g_game.friendlyShip) {
+								var dx = this.x - g_game.friendlyShip.x;
+								var dy = this.y - g_game.friendlyShip.y + Math.abs(dx/4);	// shoot high
+								var angle = Math.atan2(-dy, -dx);
+								var vY = 16 * Math.sin(angle);
+								var vX = 16 * Math.cos(angle);
+								var newX = this.x + this.w/2 + this.w*vX/16;
+								var newY = this.y + this.h/2 + this.w*vY/16;
+								g_game.explosionEffects.getNextEffect().showExplosion(newX, newY);
+								Crafty.e('Bomb').Bomb(newX, newY, vX, vY);
+							}
+						}
 					}
 				})
 			
@@ -455,9 +457,9 @@ function init() {
 					// main loop
 					g_game.world.Step(1/50,10,10);
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale });
-					g_game.cloudsSmall.attr({ x: (VIEW_WIDTH/2 - this.x)/4 });
-					g_game.cloudsMedium.attr({ x: (VIEW_WIDTH/2 - this.x)/8 });
-					g_game.cloudsLarge.attr({ x: (VIEW_WIDTH/2 - this.x)/16 });
+					g_game.cloudsSmall.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/4 });
+					g_game.cloudsMedium.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/8 });
+					g_game.cloudsLarge.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/16 });
 					
 					// body destruction
 					for (var i in g_game.objsForDestruction) {
@@ -533,11 +535,11 @@ function init() {
 
 		// clouds
 		g_game.cloudsSmall = Crafty.e('2D, ' + RENDERING_MODE + ', cloudsSmall')
-             .attr({x: 0, y: 380, z: 2})
+             .attr({x: -480, y: 380, z: 2})
 		g_game.cloudsMedium = Crafty.e('2D, ' + RENDERING_MODE + ', cloudsMedium')
-             .attr({x: 0, y: 260, z: 2})
+             .attr({x: -480, y: 260, z: 2})
 		g_game.cloudsLarge = Crafty.e('2D, ' + RENDERING_MODE + ', cloudsLarge')
-             .attr({x: 0, y: 80, z: 2})
+             .attr({x: -480, y: 80, z: 2})
 			
 			 
 		// boundaries
@@ -570,7 +572,7 @@ function init() {
 		Crafty.load(['./images/explosions.png', './images/CannonBase_48x4.png', './images/CannonBarrel_48.png'
 				,'images/BackgroundA.png', './images/Cannonball.png', './images/Bomb.png'
 				,'images/ShipA.png', 'images/ShipB.png'
-				, 'images/Clouds_Small.png', 'images/Clouds_Medium.png', 'images/Clouds_Large.png'], function() {
+				, 'images/Clouds_All.png'], function() {
 
 			Crafty.sprite(24, './images/explosions.png', {
 				explosion: [1, 0]
@@ -590,14 +592,10 @@ function init() {
 			Crafty.sprite(1, './images/BackgroundA.png', {
 				backgroundImage: [0, 0, 480, 640]
 			});
-			Crafty.sprite(1, './images/Clouds_Small.png', {
-				cloudsSmall: [0, 0, 480, 48]
-			});
-			Crafty.sprite(1, './images/Clouds_Medium.png', {
-				cloudsMedium: [0, 0, 480, 61]
-			});
-			Crafty.sprite(1, './images/Clouds_Large.png', {
-				cloudsLarge: [0, 0, 480, 151]
+			Crafty.sprite(1, './images/Clouds_All.png', {
+				cloudsSmall: [0, 0, 480*3, 48],
+				cloudsMedium: [0, 48, 480*3, 61],
+				cloudsLarge: [0, 48+61, 480*3, 151]
 			});
 			Crafty.sprite(65, './images/ShipA.png', {
 				enemyShip: [0, 0]
@@ -651,8 +649,9 @@ function startStage() {
 	g_game.kills = 0;
 	g_game.enemySpawn = setInterval(function() {
 			if (g_game.enemyCount < stageDef.ships.maxNum && g_game.kills + g_game.enemyCount < stageDef.killsNeeded) {
+				//var isBomber = includeFighter ? : true;
 				Crafty.e('AirShip')
-					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, true);
+					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, false);
 					
 				g_game.enemyCount++;
 			}
