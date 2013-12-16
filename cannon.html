@@ -13,7 +13,7 @@
 	<script type="text/javascript" src="./includes/box2dweb/Box2dWeb-2.1.a.3.js"></script>
 	<!--script type="text/javascript" src="./includes/jQuery.js"></script-->
 	<script type="text/javascript" src="./includes/buzz.min.js"></script>
-	<link href='//fonts.googleapis.com/css?family=Miss+Fajardose' rel='stylesheet' type='text/css'>
+	<link href='//fonts.googleapis.com/css?family=Belgrano' rel='stylesheet' type='text/css'>
 
 	<style>
 		body, html { margin:0; padding: 0; overflow:hidden; font-family:Arial; font-size:20px }
@@ -41,7 +41,7 @@ var g_game = {
 	sounds: [],
 	worldScale: 30,
 	spawnIntervals: [],
-	font: "'Miss Fajardose', sans-serif",
+	font: "'Belgrano', sans-serif",
 	objsForDestruction: [],
 	bodyCreationQueue: [],
 	currentStage: 0,
@@ -485,24 +485,29 @@ function init() {
 					if (this.isDown(Crafty.keys.A) || this.isDown(Crafty.keys.LEFT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
+						this.sprite(1, 0, 1, 1);
 					}
 					else if (this.isDown(Crafty.keys.D) || this.isDown(Crafty.keys.RIGHT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
+						this.sprite(1, 1, 1, 1);
 					}
 				})
 				.bind('KeyUp', function(evt) {
 					if (this.isDown(Crafty.keys.A) || this.isDown(Crafty.keys.LEFT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(-10, 0));	
+						this.sprite(1, 0, 1, 1);
 					}
 					else if (this.isDown(Crafty.keys.D) || this.isDown(Crafty.keys.RIGHT_ARROW)) {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
+						this.sprite(1, 1, 1, 1);
 					}
 					else {
 						this.physics.SetAwake(true);
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2());	
+						this.sprite(0, Math.floor(Math.random() * 2), 1, 1);
 					}
 				})
 			
@@ -511,7 +516,7 @@ function init() {
 			this.barrel.origin('center');
 			this.attach(this.barrel);
 			
-			this.physics = createBox(48, 48, x, y, b2Body.b2_kinematicBody, { type: DEFS.CANNON });
+			this.physics = createBox(48*2, 48-12, x, y+12, b2Body.b2_kinematicBody, { type: DEFS.CANNON });
 					
 			return this;
 		},
@@ -562,7 +567,7 @@ function init() {
 			//.css({ "text-align": "center", "font-family": GAME_FONT, "font-size": "44px" });
 		} catch (ex) {;}
 
-		Crafty.load(['./images/explosions.png', './images/CannonBase_48.png', './images/CannonBarrel_48.png'
+		Crafty.load(['./images/explosions.png', './images/CannonBase_48x4.png', './images/CannonBarrel_48.png'
 				,'images/BackgroundA.png', './images/Cannonball.png', './images/Bomb.png'
 				,'images/ShipA.png', 'images/ShipB.png'
 				, 'images/Clouds_Small.png', 'images/Clouds_Medium.png', 'images/Clouds_Large.png'], function() {
@@ -570,7 +575,7 @@ function init() {
 			Crafty.sprite(24, './images/explosions.png', {
 				explosion: [1, 0]
 			});
-			Crafty.sprite(48, './images/CannonBase_48.png', {
+			Crafty.sprite(48, './images/CannonBase_48x4.png', {
 				cannon_base: [0, 0]
 			});
 			Crafty.sprite(48, './images/CannonBarrel_48.png', {
