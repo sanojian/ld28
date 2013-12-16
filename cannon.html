@@ -8,12 +8,12 @@
 <title>Le Artilleur</title>
 <head>
 
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+	<!--script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script-->
 	<script type="text/javascript" src="./includes/crafty.js"></script>
 	<script type="text/javascript" src="./includes/box2dweb/Box2dWeb-2.1.a.3.js"></script>
-	<!--script type="text/javascript" src="./includes/jQuery.js"></script-->
+	<script type="text/javascript" src="./includes/jQuery.js"></script>
 	<script type="text/javascript" src="./includes/buzz.min.js"></script>
-	<link href='//fonts.googleapis.com/css?family=Belgrano' rel='stylesheet' type='text/css'>
+	<!--link href='//fonts.googleapis.com/css?family=Belgrano' rel='stylesheet' type='text/css'-->
 
 	<style>
 		body, html { margin:0; padding: 0; overflow:hidden; font-family:Arial; font-size:20px }
@@ -59,9 +59,9 @@ var g_game = {
 			description: 'Death from Above',
 			killsNeeded: 1,
 			ships: {
-				includeFighter: true, spawnRate: 3000, maxNum: 1 
+				includeFighter: false, spawnRate: 3000, maxNum: 1 
 			},
-			friend: true
+			friend: false
 		},
 		{
 			name: 'Stage 2',
@@ -321,7 +321,7 @@ function init() {
 		isEnemy: false,
 			
 		AirShip: function(x, y, size, bEnemy, bBomber) {
-			this.requires('2D, ' + RENDERING_MODE + ', ' + (bEnemy ? 'enemyShip' : 'friendlyShip'))
+			this.requires('2D, ' + RENDERING_MODE + ', ' + (bEnemy ? (bBomber ? 'enemyShip' : 'enemyFighter') : 'friendlyShip'))
 				.attr({ x: x, y: y, w: size, h: size, z: 100 })
 				.bind('EnterFrame', function(frameObj) {
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale -size/2, y: this.physics.m_xf.position.y*g_game.worldScale - size/2 });
@@ -571,7 +571,7 @@ function init() {
 
 		Crafty.load(['./images/explosions.png', './images/CannonBase_48x4.png', './images/CannonBarrel_48.png'
 				,'images/BackgroundA.png', './images/Cannonball.png', './images/Bomb.png'
-				,'images/ShipA.png', 'images/ShipB.png'
+				,'images/ShipA.png', 'images/ShipB.png', 'images/ShipC.png'
 				, 'images/Clouds_All.png'], function() {
 
 			Crafty.sprite(24, './images/explosions.png', {
@@ -602,6 +602,9 @@ function init() {
 			});
 			Crafty.sprite(65, './images/ShipB.png', {
 				friendlyShip: [0, 0]
+			});
+			Crafty.sprite(65, './images/ShipC.png', {
+				enemyFighter: [0, 0]
 			});
 
 			g_game.sounds.shoot = new buzz.sound( "./audio/sfx/shoot", {
@@ -649,9 +652,9 @@ function startStage() {
 	g_game.kills = 0;
 	g_game.enemySpawn = setInterval(function() {
 			if (g_game.enemyCount < stageDef.ships.maxNum && g_game.kills + g_game.enemyCount < stageDef.killsNeeded) {
-				//var isBomber = includeFighter ? : true;
+				var isBomber = stageDef.ships.includeFighter ? (Math.random() > 0.5 ? true : false) : true;
 				Crafty.e('AirShip')
-					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, false);
+					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, isBomber);
 					
 				g_game.enemyCount++;
 			}
