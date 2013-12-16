@@ -63,12 +63,12 @@ var g_game = {
 				include: ['bomber'], spawnRate: 3000, maxNum: 1 
 			},
 			friend: false
-		}/*,
+		},
 		{
 			name: 'Stage 2',
 			description: 'Pass the Ammo',
 			killsNeeded: 3,
-			song: 'song1',
+			song: 'song2',
 			ships: {
 				include: ['bomber', 'fighter'], spawnRate: 3000, maxNum: 2
 			},
@@ -87,7 +87,7 @@ var g_game = {
 		{
 			name: 'Stage 4',
 			description: 'Help is Not on the Way',
-			song: 'song1',
+			song: 'song2',
 			killsNeeded: 5,
 			ships: {
 				include: ['bomber'], spawnRate: 3000, maxNum: 3
@@ -108,12 +108,12 @@ var g_game = {
 			name: 'Stage 6',
 			description: 'Waterloo',
 			killsNeeded: 7,
-			song: 'song1',
+			song: 'song2',
 			ships: {
 				include: ['gunship'], spawnRate: 3000, maxNum: 4
 			},
 			friend: true
-		}*/
+		}
 	]
 };
 
@@ -644,7 +644,8 @@ function init() {
 		Crafty.load(['./images/explosions.png', './images/CannonBase_48x4.png', './images/CannonBarrel_48.png'
 				,'images/BackgroundA.png', './images/Cannonball.png', './images/Bomb.png'
 				,'images/ships.png', 'images/Clouds_All.png'
-				, './audio/music/anthem1.ogg', './audio/music/death.ogg', './audio/music/win.ogg'], function() {
+				, './audio/music/anthem1.ogg', "./audio/music/anthem2"
+				, './audio/music/death.ogg', './audio/music/win.ogg'], function() {
 
 			Crafty.sprite(24, './images/explosions.png', {
 				explosion: [1, 0]
@@ -696,6 +697,9 @@ function init() {
 				formats: [ "wav" ]
 			});
 			g_game.sounds.song1 = new buzz.sound( "./audio/music/anthem1", {
+				formats: [ "ogg" ],
+			});
+			g_game.sounds.song2 = new buzz.sound( "./audio/music/anthem2", {
 				formats: [ "ogg" ],
 			});
 			g_game.sounds.death = new buzz.sound( "./audio/music/death", {
