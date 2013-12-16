@@ -511,6 +511,7 @@ function init() {
 					g_game.cloudsSmall.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/16 });
 					g_game.cloudsMedium.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/8 });
 					g_game.cloudsLarge.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/4 });
+					g_game.groundImage.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/24 });
 					
 					// body destruction
 					for (var i in g_game.objsForDestruction) {
@@ -598,6 +599,8 @@ function init() {
              .attr({x: 0, y: 0, z: 1})
 
 		// clouds
+		g_game.groundImage = Crafty.e('2D, ' + RENDERING_MODE + ', ground')
+             .attr({x: -480, y: 640-64, z: 2})
 		g_game.cloudsSmall = Crafty.e('2D, ' + RENDERING_MODE + ', cloudsSmall')
              .attr({x: -480, y: 500, z: 2})
 		g_game.cloudsMedium = Crafty.e('2D, ' + RENDERING_MODE + ', cloudsMedium')
@@ -664,7 +667,8 @@ function init() {
 			Crafty.sprite(1, './images/Clouds_All.png', {
 				cloudsSmall: [0, 0, 480*3, 48],
 				cloudsMedium: [0, 48, 480*3, 61],
-				cloudsLarge: [0, 48+61, 480*3, 151]
+				cloudsLarge: [0, 48+61, 480*3, 151],
+				ground: [0, 48+61+151, 480*3, 64]
 			});
 			Crafty.sprite(65, './images/ships.png', {
 				friendlyShip: [0, 0],
