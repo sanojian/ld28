@@ -13,7 +13,7 @@
 	<script type="text/javascript" src="./includes/box2dweb/Box2dWeb-2.1.a.3.js"></script>
 	<script type="text/javascript" src="./includes/jQuery.js"></script>
 	<script type="text/javascript" src="./includes/buzz.min.js"></script>
-	<!--link href='//fonts.googleapis.com/css?family=Belgrano' rel='stylesheet' type='text/css'-->
+	<link href='//fonts.googleapis.com/css?family=Belgrano' rel='stylesheet' type='text/css'>
 
 	<style>
 		body, html { margin:0; padding: 0; overflow:hidden; font-family:Arial; font-size:20px }
@@ -58,15 +58,17 @@ var g_game = {
 			name: 'Stage 1',
 			description: 'The Enemy Approaches',
 			killsNeeded: 1,
+			song: 'song1',
 			ships: {
 				include: ['bomber'], spawnRate: 3000, maxNum: 1 
 			},
 			friend: false
-		},
+		}/*,
 		{
 			name: 'Stage 2',
 			description: 'Pass the Ammo',
 			killsNeeded: 3,
+			song: 'song1',
 			ships: {
 				include: ['bomber', 'fighter'], spawnRate: 3000, maxNum: 2
 			},
@@ -75,6 +77,7 @@ var g_game = {
 		{
 			name: 'Stage 3',
 			description: 'The Swarm',
+			song: 'song1',
 			killsNeeded: 7,
 			ships: {
 				include: ['bomber', 'fighter'], spawnRate: 3000, maxNum: 5
@@ -84,6 +87,7 @@ var g_game = {
 		{
 			name: 'Stage 4',
 			description: 'Help is Not on the Way',
+			song: 'song1',
 			killsNeeded: 5,
 			ships: {
 				include: ['bomber'], spawnRate: 3000, maxNum: 3
@@ -93,6 +97,7 @@ var g_game = {
 		{
 			name: 'Stage 5',
 			description: 'A New Enemy',
+			song: 'song1',
 			killsNeeded: 5,
 			ships: {
 				include: ['bomber', 'gunship'], spawnRate: 3000, maxNum: 3
@@ -103,11 +108,12 @@ var g_game = {
 			name: 'Stage 6',
 			description: 'Waterloo',
 			killsNeeded: 7,
+			song: 'song1',
 			ships: {
 				include: ['gunship'], spawnRate: 3000, maxNum: 4
 			},
 			friend: true
-		}		
+		}*/
 	]
 };
 
@@ -147,15 +153,24 @@ function init() {
 	var pos = $('#cr-stage').offset();
 	g_game.gamePos = pos;
 	$('#divOverlay').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
-	$('#divSplash').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
-	$('#divDeathScreen').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
+	$('#divSplash').css({ 'font-family': g_game.font, width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
+	$('#divDeathScreen').css({ 'font-family': g_game.font, width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
+	$('#divVictoryScreen').css({ 'font-family': g_game.font, width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
+	$('#divIntroScreen').css({ 'font-family': g_game.font, width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
 
 	$('#divDeathScreen').bind('click', function() {
 		$('#divDeathScreen').hide();
 		Crafty.pause(false);
 		startStage();
 	});
-		
+
+	$('#divVictoryScreen').bind('click', function() {
+		$('#divVictoryScreen').hide();
+		Crafty.pause(false);
+		g_game.currentStage = g_game.stages.length - 1;
+		startStage();
+	});
+	
 	var listener = new b2Listener;
 	listener.BeginContact = function(contact) {
 		var dataA = contact.GetFixtureA().GetBody().GetUserData();
@@ -409,7 +424,7 @@ function init() {
 					g_game.kills++;
 					// did we win stage?
 					if (g_game.kills >= g_game.stages[g_game.currentStage].killsNeeded) {
-						g_game.currentStage = Math.min(g_game.stages.length-1, g_game.currentStage + 1);
+						g_game.currentStage = g_game.currentStage + 1;
 						startStage();
 					}
 				}
@@ -530,6 +545,10 @@ function init() {
 						this.physics.SetLinearVelocity(new Box2D.Common.Math.b2Vec2(10, 0));	
 						this.sprite(1, 1, 1, 1);
 					}
+					else if (evt.key == Crafty.keys.M) {
+						g_game.song.toggleMute();
+						g_game.mutedMusic = g_game.song.isMuted();
+					}
 				})
 				.bind('KeyUp', function(evt) {
 					if (this.isDown(Crafty.keys.A) || this.isDown(Crafty.keys.LEFT_ARROW)) {
@@ -567,6 +586,8 @@ function init() {
 			}
 			Crafty.pause(true);
 			$('#divDeathScreen').show();
+			g_game.song.stop();
+			g_game.sounds.death.setVolume(50).play().loop();
 		}
 	});
 
@@ -606,15 +627,21 @@ function init() {
 	
 	Crafty.scene("loading", function () {
 		Crafty.background("#000");
+		//Background
+		Crafty.e('2D, ' + RENDERING_MODE + ', Image')
+             .attr({x: 0, y: 0, z: 1})
+			 .image('./images/IntroImage.png', 'no-repeat');
+		
 		try {
-		Crafty.e('2D, ' + RENDERING_MODE + ', Text').attr({ w: 800, h: 20, x: VIEW_WIDTH/2 - 400, y: VIEW_HEIGHT/2-160 })
+		Crafty.e('2D, ' + RENDERING_MODE + ', Text').attr({ w: 800, h: 20, x: VIEW_WIDTH/2 - 400, y: VIEW_HEIGHT/2-160, z: 100 })
 			.text("Loading...")
 			//.css({ "text-align": "center", "font-family": GAME_FONT, "font-size": "44px" });
 		} catch (ex) {;}
 
 		Crafty.load(['./images/explosions.png', './images/CannonBase_48x4.png', './images/CannonBarrel_48.png'
 				,'images/BackgroundA.png', './images/Cannonball.png', './images/Bomb.png'
-				,'images/ships.png', 'images/Clouds_All.png'], function() {
+				,'images/ships.png', 'images/Clouds_All.png'
+				, './audio/music/anthem1.ogg', './audio/music/death.ogg', './audio/music/win.ogg'], function() {
 
 			Crafty.sprite(24, './images/explosions.png', {
 				explosion: [1, 0]
@@ -664,8 +691,22 @@ function init() {
 			g_game.sounds.thump = new buzz.sound( "./audio/sfx/thump", {
 				formats: [ "wav" ]
 			});
+			g_game.sounds.song1 = new buzz.sound( "./audio/music/anthem1", {
+				formats: [ "ogg" ],
+			});
+			g_game.sounds.death = new buzz.sound( "./audio/music/death", {
+				formats: [ "ogg" ],
+			});
+			g_game.sounds.win = new buzz.sound( "./audio/music/win", {
+				formats: [ "ogg" ],
+			});
 
-			Crafty.scene("main");
+			$('#divLoading').css('visibility', 'hidden');
+			$('#divContinue').show();
+			$('#divIntroScreen').bind('click', function() {
+				$('#divIntroScreen').hide();
+				Crafty.scene("main");
+			});
 			
 		});
 	});
@@ -677,6 +718,13 @@ function init() {
 function startStage() {
 	clearTimeout(g_game.enemySpawn);
 	clearTimeout(g_game.friendlySpawn);
+	if (g_game.currentStage >= g_game.stages.length) {
+		Crafty.pause(true);
+		$('#divVictoryScreen').show();
+		g_game.song.stop();
+		g_game.sounds.win.setVolume(50).play().loop();
+		return;
+	}
 	var stageDef = g_game.stages[g_game.currentStage];
 
 	$('#divSplash').css({ 'font-family': g_game.font, 'font-size': '32pt', 'font-weight': 'bold' });
@@ -712,6 +760,17 @@ function startStage() {
 		}, 10000);
 	}
 
+	g_game.sounds.death.stop();
+	g_game.sounds.win.stop();
+	
+	if (g_game.song) {
+		g_game.song.pause();
+	}
+	g_game.song = g_game.sounds[stageDef.song];
+	g_game.song.setVolume(50).play().loop();
+	if (g_game.mutedMusic) {
+		g_game.song.mute();
+	}
 }
 	
 	</script>
@@ -729,6 +788,17 @@ function startStage() {
 		<br><br><span style="font-size: 48pt;">Death</span>
 		<br><br><span>The dreams of the Empire have died with you.</span>
 		<br><br><span>Click to try again.</span>
+	</div> 
+	<div id="divVictoryScreen" style="position: absolute;text-align: center;color: #88A4C9; display: none;z-index: 11000;font-size: 24pt;">
+		<br><br><span style="font-size: 48pt;">Victory!</span>
+		<br><br><span>You are on your way to an Empire.</span>
+		<br><br><span>Click to retry level.</span>
+	</div> 
+	<div id="divIntroScreen" style="position: absolute;text-align: center;color: #88A4C9; z-index: 11000;font-size: 24pt;">
+		<br><span style="font-size: 48pt;">Le Artilleur</span>
+		<br><div id="divLoading" style="padding-left: 100px; text-align: left;">Loading...</div>
+		<br><br><br><div id="divContinue" style="display: none; padding-left: 120px; padding-top: 12px;">Click to start.</div>
+		<br><br><br><br><br><br><div style="padding-left: 120px; padding-top: 20px;font-size: 16pt;">A + D or arrows.  M mute music.</div>
 	</div> 
 
 </body>
