@@ -56,10 +56,10 @@ var g_game = {
 	stages: [
 		{
 			name: 'Stage 1',
-			description: 'Death from Above',
+			description: 'The Enemy Approaches',
 			killsNeeded: 1,
 			ships: {
-				includeFighter: false, spawnRate: 3000, maxNum: 1 
+				include: ['bomber'], spawnRate: 3000, maxNum: 1 
 			},
 			friend: false
 		},
@@ -68,7 +68,7 @@ var g_game = {
 			description: 'Pass the Ammo',
 			killsNeeded: 3,
 			ships: {
-				includeFighter: true, spawnRate: 3000, maxNum: 2
+				include: ['bomber', 'fighter'], spawnRate: 3000, maxNum: 2
 			},
 			friend: true
 		},
@@ -77,20 +77,37 @@ var g_game = {
 			description: 'The Swarm',
 			killsNeeded: 7,
 			ships: {
-				includeFighter: true, spawnRate: 3000, maxNum: 5
+				include: ['bomber', 'fighter'], spawnRate: 3000, maxNum: 5
 			},
 			friend: true
 		},
 		{
 			name: 'Stage 4',
 			description: 'Help is Not on the Way',
-			killsNeeded: 7,
+			killsNeeded: 5,
 			ships: {
-				includeFighter: true, spawnRate: 3000, maxNum: 3
+				include: ['bomber'], spawnRate: 3000, maxNum: 3
 			},
 			friend: false
-		}
-		
+		},
+		{
+			name: 'Stage 5',
+			description: 'A New Enemy',
+			killsNeeded: 5,
+			ships: {
+				include: ['bomber', 'gunship'], spawnRate: 3000, maxNum: 3
+			},
+			friend: true
+		},
+		{
+			name: 'Stage 6',
+			description: 'Waterloo',
+			killsNeeded: 7,
+			ships: {
+				include: ['gunship'], spawnRate: 3000, maxNum: 4
+			},
+			friend: true
+		}		
 	]
 };
 
@@ -131,7 +148,14 @@ function init() {
 	g_game.gamePos = pos;
 	$('#divOverlay').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
 	$('#divSplash').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
+	$('#divDeathScreen').css({ width: $('#cr-stage').width(), height: $('#cr-stage').height(), left: pos.left+2, top: pos.top+2 });
 
+	$('#divDeathScreen').bind('click', function() {
+		$('#divDeathScreen').hide();
+		Crafty.pause(false);
+		startStage();
+	});
+		
 	var listener = new b2Listener;
 	listener.BeginContact = function(contact) {
 		var dataA = contact.GetFixtureA().GetBody().GetUserData();
@@ -320,8 +344,18 @@ function init() {
 		hitPoints: 40,
 		isEnemy: false,
 			
-		AirShip: function(x, y, size, bEnemy, bBomber) {
-			this.requires('2D, ' + RENDERING_MODE + ', ' + (bEnemy ? (bBomber ? 'enemyShip' : 'enemyFighter') : 'friendlyShip'))
+		AirShip: function(x, y, size, bEnemy, bBomber, bGunship) {
+			var sprite = 'enemyFighter';
+			if (!bEnemy) {
+				sprite = 'friendlyShip';
+			}
+			else if (bBomber) {
+				sprite = 'enemyShip';
+			}
+			else if (bGunship) {
+				sprite = 'enemyGunship';
+			}
+			this.requires('2D, ' + RENDERING_MODE + ', ' + sprite)
 				.attr({ x: x, y: y, w: size, h: size, z: 100 })
 				.bind('EnterFrame', function(frameObj) {
 					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale -size/2, y: this.physics.m_xf.position.y*g_game.worldScale - size/2 });
@@ -336,14 +370,16 @@ function init() {
 						}
 						else {
 							// shoot at friendly
-							if (g_game.friendlyShip) {
-								var dx = this.x - g_game.friendlyShip.x;
-								var dy = this.y - g_game.friendlyShip.y + Math.abs(dx/4);	// shoot high
+							var target = g_game.friendlyShip ? g_game.friendlyShip : (bGunship ? g_game.cannon : null);
+							var velocity = g_game.friendlyShip ? 16 : 8;
+							if (target) {
+								var dx = this.x - target.x;
+								var dy = this.y - target.y + Math.abs(dx/4);	// shoot high
 								var angle = Math.atan2(-dy, -dx);
-								var vY = 16 * Math.sin(angle);
-								var vX = 16 * Math.cos(angle);
-								var newX = this.x + this.w/2 + this.w*vX/16;
-								var newY = this.y + this.h/2 + this.w*vY/16;
+								var vY = velocity * Math.sin(angle);
+								var vX = velocity * Math.cos(angle);
+								var newX = this.x + this.w/2 + this.w*vX/velocity;
+								var newY = this.y + this.h/2 + this.w*vY/velocity;
 								g_game.explosionEffects.getNextEffect().showExplosion(newX, newY);
 								Crafty.e('Bomb').Bomb(newX, newY, vX, vY);
 							}
@@ -449,7 +485,7 @@ function init() {
 	});
 	
 	Crafty.c('Cannon', {
-	
+		
 		Cannon: function(x, y) {
 			this.requires('2D, ' + RENDERING_MODE + ', Keyboard, cannon_base')
 				.attr({ x: x, y: y, z: 110 })
@@ -518,12 +554,19 @@ function init() {
 			this.barrel.origin('center');
 			this.attach(this.barrel);
 			
-			this.physics = createBox(48*2, 48-12, x, y+12, b2Body.b2_kinematicBody, { type: DEFS.CANNON });
+			this.physics = createBox(48*2, 48-12, x, y+12, b2Body.b2_kinematicBody, { type: DEFS.CANNON, craftyId: this[0] });
 					
 			return this;
 		},
 		rotateBarrel: function(angle) {
 			this.barrel.rotation =  90 - angle * 180 / Math.PI;
+		},
+		takeDamage: function(amt, from) {
+			if (from) {
+				g_game.explosionEffects.getNextEffect().showExplosion(from.x, from.y);
+			}
+			Crafty.pause(true);
+			$('#divDeathScreen').show();
 		}
 	});
 
@@ -571,8 +614,7 @@ function init() {
 
 		Crafty.load(['./images/explosions.png', './images/CannonBase_48x4.png', './images/CannonBarrel_48.png'
 				,'images/BackgroundA.png', './images/Cannonball.png', './images/Bomb.png'
-				,'images/ShipA.png', 'images/ShipB.png', 'images/ShipC.png'
-				, 'images/Clouds_All.png'], function() {
+				,'images/ships.png', 'images/Clouds_All.png'], function() {
 
 			Crafty.sprite(24, './images/explosions.png', {
 				explosion: [1, 0]
@@ -597,14 +639,11 @@ function init() {
 				cloudsMedium: [0, 48, 480*3, 61],
 				cloudsLarge: [0, 48+61, 480*3, 151]
 			});
-			Crafty.sprite(65, './images/ShipA.png', {
-				enemyShip: [0, 0]
-			});
-			Crafty.sprite(65, './images/ShipB.png', {
-				friendlyShip: [0, 0]
-			});
-			Crafty.sprite(65, './images/ShipC.png', {
-				enemyFighter: [0, 0]
+			Crafty.sprite(65, './images/ships.png', {
+				friendlyShip: [0, 0],
+				enemyShip: [1, 0],
+				enemyFighter: [2, 0],
+				enemyGunship: [3, 0]
 			});
 
 			g_game.sounds.shoot = new buzz.sound( "./audio/sfx/shoot", {
@@ -652,9 +691,12 @@ function startStage() {
 	g_game.kills = 0;
 	g_game.enemySpawn = setInterval(function() {
 			if (g_game.enemyCount < stageDef.ships.maxNum && g_game.kills + g_game.enemyCount < stageDef.killsNeeded) {
+				var type = stageDef.ships.include[Math.floor(Math.random() * stageDef.ships.include.length)];
+				var bBomber = type == 'bomber';
+				var bGunship = type == 'gunship';
 				var isBomber = stageDef.ships.includeFighter ? (Math.random() > 0.5 ? true : false) : true;
 				Crafty.e('AirShip')
-					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, isBomber);
+					.AirShip(50 + Math.floor(Math.random()*(VIEW_WIDTH-100)), 100, 65, true, bBomber, bGunship);
 					
 				g_game.enemyCount++;
 			}
@@ -682,6 +724,11 @@ function startStage() {
 		<br><br><span style="font-size: 48pt;">Le Artilleur</span>
 		<br><br><span id="spanStageName">test</span>
 		<br><br><span id="spanStageDesc">test</span>
+	</div> 
+	<div id="divDeathScreen" style="position: absolute;text-align: center;color: #A06161; display: none;z-index: 11000;font-size: 24pt;">
+		<br><br><span style="font-size: 48pt;">Death</span>
+		<br><br><span>The dreams of the Empire have died with you.</span>
+		<br><br><span>Click to try again.</span>
 	</div> 
 
 </body>
