@@ -503,11 +503,11 @@ function init() {
 		
 		Cannon: function(x, y) {
 			this.requires('2D, ' + RENDERING_MODE + ', Keyboard, cannon_base')
-				.attr({ x: x, y: y, z: 110 })
+				.attr({ x: x-20, y: y, z: 110 })
 				.bind('EnterFrame', function() {
 					// main loop
 					g_game.world.Step(1/50,10,10);
-					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale });
+					this.attr({ x: this.physics.m_xf.position.x*g_game.worldScale - 20 });
 					g_game.cloudsSmall.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/16 });
 					g_game.cloudsMedium.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/8 });
 					g_game.cloudsLarge.attr({ x: -480 + (VIEW_WIDTH/2 - this.x)/4 });
@@ -574,7 +574,7 @@ function init() {
 			this.barrel.origin('center');
 			this.attach(this.barrel);
 			
-			this.physics = createBox(48*2, 48-12, x, y+12, b2Body.b2_kinematicBody, { type: DEFS.CANNON, craftyId: this[0] });
+			this.physics = createBox(48, 48, x, y+12, b2Body.b2_kinematicBody, { type: DEFS.CANNON, craftyId: this[0] });
 					
 			return this;
 		},
